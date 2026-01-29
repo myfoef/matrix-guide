@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>零成本 Matrix 服务器部署教程 (Hugging Face 版)</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --bg-color: #f8fafc;
+            --text-color: #1e293b;
+            --code-bg: #1e1e1e;
+            --code-text: #d4d4d4;
+            --accent: #f59e0b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            color: #334155;
+            border-left: 5px solid var(--primary-color);
+            padding-left: 15px;
+            margin-top: 40px;
+        }
+
+        h3 {
+            color: #475569;
+            margin-top: 25px;
+        }
+
+        .step-badge {
+            background: var(--primary-color);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        p, li {
+            font-size: 16px;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        /* 表格样式 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f1f5f9;
+        }
+
+        /* 代码块样式 */
+        .code-container {
+            position: relative;
+            margin: 15px 0;
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .copy-btn.copied {
+            background: #10b981;
+            border-color: #10b981;
+        }
+
+        .note {
+            background-color: #fffbeb;
+            border-left: 4px solid var(--accent);
+            padding: 15px;
+            margin: 15px 0;
+            color: #92400e;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            color: #64748b;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>零成本 Matrix 服务器部署指南</h1>
+        <p>基于 Hugging Face + Neon + Filebase 的全套解决方案</p>
+    </header>
+
+    <div class="note">
+        <strong>前提条件：</strong> 请确保你已经注册了 Hugging Face, GitHub, Neon (数据库), 和 Filebase (文件存储) 的账号。
+    </div>
+
+    <h2><span class="step-badge">Phase 1</span>环境准备与密钥设置</h2>
+    <p>进入 <strong>Hugging Face Space</strong> -> <strong>Settings</strong> -> <strong>Variables and secrets</strong>，点击 <strong>New Secret</strong> 添加以下 6 个变量（注意全大写）：</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Secret Name (变量名)</th>
+                <th>示例 Value (值)</th>
+                <th>说明</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>NEON_USER</td>
+                <td>neondb_owner</td>
+                <td>Neon 数据库用户名</td>
+            </tr>
+            <tr>
+                <td>NEON_PASSWORD</td>
+                <td>npg_...</td>
+                <td>Neon 数据库密码</td>
+            </tr>
+            <tr>
+                <td>NEON_HOST</td>
+                <td>ep-xxx...neon.tech</td>
+                <td>Neon 数据库地址 (不带 postgres://)</td>
+            </tr>
+            <tr>
+                <td>S3_BUCKET</td>
+                <td>my-matrix-bucket</td>
+                <td>Filebase Bucket 名字</td>
+            </tr>
+            <tr>
+                <td>AWS_ACCESS_KEY_ID</td>
+                <td>066...</td>
+                <td>Filebase Access Key</td>
+            </tr>
+            <tr>
+                <td>AWS_SECRET_ACCESS_KEY</td>
+                <td>...</td>
+                <td>Filebase Secret Key</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2><span class="step-badge">Phase 2</span>创建 Dockerfile</h2>
+    <p>在 GitHub Codespaces 中，新建名为 <code>Dockerfile</code> 的文件，复制以下内容：</p>
+    <div class="code-container">
+        <button class="copy-btn" onclick="copyCode(this)">复制代码</button>
+        <pre># 使用官方 Synapse 镜像
+FROM matrixdotorg/synapse:latest
+
+# 切换到 root 用户
+USER root
+
+# 1. 安装编译依赖 + gettext (用于替换环境变量)
+RUN apt-get update && apt-get install -y \
+    git \
+    gcc \
+    python3-dev \
+    libffi-dev \
+    libxml2-dev \
+    libxslt-dev \
+    libjpeg-dev \
+    zlib1g-dev \
+    libpq-dev \
+    gettext-base \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. 升级 pip
+RUN pip install --upgrade pip setuptools wheel
+
+# 3. 安装 S3 插件
+RUN pip install https://github.com/matrix-org/synapse-s3-storage-provider/archive/refs/heads/main.zip
+
+# 4. 设置端口
+ENV SYNAPSE_HTTP_PORT=7860
+
+# 5. 复制配置文件 (作为模板)
+COPY homeserver.yaml /data/homeserver.yaml.template
+
+# 6. 修正权限
+RUN chown -R 991:991 /data && chmod -R 755 /data
+
+# 切换回 Synapse 用户
+USER 991
+
+# 7. 【核心修复】使用 ENTRYPOINT 覆盖默认启动脚本
+# 这样 Docker 就不会去调原来的 /start.py，而是直接运行我们的 shell 命令
+# 命令逻辑：先替换变量生成 yaml，然后手动调用 /start.py 启动服务
+ENTRYPOINT ["/bin/sh", "-c", "envsubst < /data/homeserver.yaml.template > /data/homeserver.yaml && /start.py run"]</pre>
+    </div>
+
+    <h2><span class="step-badge">Phase 3</span>生成初始配置</h2>
+    <p>在 GitHub Codespaces 下方的 <strong>Terminal (终端)</strong> 中执行以下命令生成初始文件。<br>
+    <span style="color:red;">注意：请先修改下面的 SERVER_NAME 为你实际的空间地址。</span></p>
+
+    <div class="code-container">
+        <button class="copy-btn" onclick="copyCode(this)">复制代码</button>
+        <pre># 替换这里！例如 sansc-chat-server.hf.space
+# 注意：不带 https://
+export SERVER_NAME="你的用户名-你的空间名.hf.space"
+
+# 运行命令生成配置
+docker run -it --rm \
+    -v "/workspaces/matrix-hf-deploy:/data" \
+    -e SYNAPSE_SERVER_NAME=$SERVER_NAME \
+    -e SYNAPSE_REPORT_STATS=no \
+    matrixdotorg/synapse:latest generate</pre>
+    </div>
+
+    <h2><span class="step-badge">Phase 4</span>修改 homeserver.yaml</h2>
+    <p>打开生成的 <code>homeserver.yaml</code> 文件，依次进行以下 5 步修改：</p>
+
+    <h3>1. 添加注册与跨域配置 (放在文件最上方)</h3>
+    <div class="code-container">
+        <button class="copy-btn" onclick="copyCode(this)">复制代码</button>
+        <pre># 允许 Synapse Admin 等外部网页工具连接
+enable_cors: true
+
+# 开启注册，家人注册完后建议改为 false
+enable_registration: true
+
+# 【关键】添加这一行：允许无验证（无邮箱/手机号）直接注册
+enable_registration_without_verification: true
+
+# 【可选】顺手把日志里的另一个警告也消掉
+suppress_key_server_warning: true</pre>
+    </div>
+
+    <h3>2. 修改监听端口 (listeners 部分)</h3>
+    <p>找到 <code>listeners:</code> 下的配置，确保端口是 7860 且开启转发：</p>
+    <div class="code-container">
+        <button class="copy-btn" onclick="copyCode(this)">复制代码</button>
+        <pre>listeners:
+  - port: 7860          # 必须是 7860
+    tls: false
+    type: http
+    x_forwarded: true   # 必须开启
+    bind_addresses: ['0.0.0.0']
+    resources:
+      - names: [client, federation]
+        compress: false</pre>
+    </div>
+
+    <h3>3. 配置数据库 (使用变量)</h3>
+    <p>找到 <code>database:</code> 部分，替换为以下内容：</p>
+    <div class="code-container">
+        <button class="copy-btn" onclick="copyCode(this)">复制代码</button>
+        <pre>database:
+  name: psycopg2
+  allow_unsafe_locale: true
+  args:
+    user: "${NEON_USER}"         # 变成了变量
+    password: "${NEON_PASSWORD}" # 变成了变量
+    database: "neondb"
+    host: "${NEON_HOST}"         # 变成了变量
+    port: 5432
+    cp_min: 5
+    cp_max: 10</pre>
+    </div>
+
+    <h3>4. 配置 S3 存储 (放到文件末尾)</h3>
+    <p>在文件最底部添加以下内容：</p>
+    <div class="code-container">
+        <button class="copy-btn" onclick="copyCode(this)">复制代码</button>
+        <pre>media_store_path: /data/media_store
+media_storage_providers:
+- module: s3_storage_provider.S3StorageProviderBackend
+  store_local: True
+  store_remote: True
+  store_synchronous: True
+  config:
+    bucket: "${S3_BUCKET}"             # 变成了变量
+    region_name: "us-east-1"
+    endpoint_url: "https://s3.filebase.com"
+    access_key: "${AWS_ACCESS_KEY_ID}"     # 变成了变量
+    secret_key: "${AWS_SECRET_ACCESS_KEY}" # 变成了变量</pre>
+    </div>
+
+    <h3>5. 删除日志配置 (防止报错)</h3>
+    <p>按 <code>Ctrl+F</code> 搜索 <code>log_config</code>，<strong>直接删除整行</strong>：</p>
+    <div class="code-container">
+        <button class="copy-btn" onclick="copyCode(this)">复制代码</button>
+        <pre># 删除类似下面这行：
+log_config: "/data/用户名-空间名.hf.space.hf.space.log.config"</pre>
+    </div>
+
+    <h2><span class="step-badge">Phase 5</span>修复 README.md</h2>
+    <p>Hugging Face 需要通过 README 来识别 Docker 端口。在 Codespaces 新建 <code>README.md</code>，填入以下内容：</p>
+    <div class="code-container">
+        <button class="copy-btn" onclick="copyCode(this)">复制代码</button>
+        <pre>---
+title: Matrix Chat Server
+emoji: 💬
+colorFrom: blue
+colorTo: purple
+sdk: docker
+pinned: false
+license: mit
+app_port: 7860
+---
+
+# My Matrix Chat Server
+基于 Synapse 的加密聊天服务器。</pre>
+    </div>
+
+    <h2><span class="step-badge">Phase 6</span>推送到 Hugging Face</h2>
+    <p>在终端依次执行以下命令进行部署。注意替换第 3 条命令中的 Token 和 URL。</p>
+    <div class="code-container">
+        <button class="copy-btn" onclick="copyCode(this)">复制代码</button>
+        <pre># 1. 初始化 git（如果需要）
+git init
+
+# 2. 添加目录信任白名单 (防止权限报错)
+git config --global --add safe.directory '*'
+
+# 3. 添加 HF 为远程仓库
+# 格式：https://用户名:TOKEN@huggingface.co/spaces/用户名/空间名
+# 请手动替换下面的 URL！
+git remote add space https://你的用户名:你的TOKEN@huggingface.co/spaces/你的用户名/你的空间名
+
+# 4. 提交代码
+git add .
+git commit -m "Deploy to HF"
+
+# 5. 强制推送
+git push --force space main</pre>
+    </div>
+
+    <h2><span class="step-badge">Phase 7</span>管理与维护</h2>
+    <p>部署成功后，你可以在 Neon 的 SQL Editor 中执行以下命令来管理用户。</p>
+
+    <h3>查看用户统计</h3>
+    <div class="code-container">
+        <button class="copy-btn" onclick="copyCode(this)">复制代码</button>
+        <pre>-- 查看所有用户
+SELECT name, creation_ts FROM users;
+
+-- 查看总人数
+SELECT count(*) FROM users;</pre>
+    </div>
+
+    <h3>提升管理员权限 (提权)</h3>
+    <div class="code-container">
+        <button class="copy-btn" onclick="copyCode(this)">复制代码</button>
+        <pre>-- 替换为你的完整用户名 (在 Element 设置里查看)
+-- 例如: @tom:tom-chat.hf.space
+UPDATE users 
+SET admin = 1 
+WHERE name = '@你的账户名:你的空间地址';</pre>
+    </div>
+
+    <footer>
+        <p>祝贺你！你已拥有一个永久免费的私有聊天服务器。</p>
+    </footer>
+</div>
+
+<script>
+    function copyCode(btn) {
+        const pre = btn.nextElementSibling;
+        const code = pre.textContent;
+        
+        navigator.clipboard.writeText(code).then(() => {
+            const originalText = btn.textContent;
+            btn.textContent = '已复制!';
+            btn.classList.add('copied');
+            
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.classList.remove('copied');
+            }, 2000);
+        }).catch(err => {
+            console.error('复制失败:', err);
+            btn.textContent = '复制失败';
+        });
+    }
+</script>
+
+</body>
+</html>
