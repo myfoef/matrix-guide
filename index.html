@@ -264,7 +264,7 @@ export SERVER_NAME="你的用户名-你的空间名.hf.space"
 
 # 运行命令生成配置
 docker run -it --rm \
-    -v "/workspaces/matrix-hf-deploy:/data" \
+    -v "$(pwd):/data" \
     -e SYNAPSE_SERVER_NAME=$SERVER_NAME \
     -e SYNAPSE_REPORT_STATS=no \
     matrixdotorg/synapse:latest generate</pre>
